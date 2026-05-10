@@ -12,6 +12,12 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_GA_MEASUREMENT_ID
 };
 
+if (!firebaseConfig.apiKey) {
+  console.error("Firebase API Key is missing! Check your .env.production file.");
+}
+
+console.log("Initializing Firebase with Project ID:", firebaseConfig.projectId);
+
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID); 
 export const auth = getAuth(app);
