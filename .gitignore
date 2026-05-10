@@ -9,3 +9,5 @@ coverage/
 firebase-applet-config.json
 firebase-blueprint.json
 firestore.rules
+service-account.json
+cors.json
