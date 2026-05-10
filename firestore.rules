@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isAdmin() { 
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function isAuthor() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'author' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'content manager'
+      );
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Collections ---
+
+    // USERS
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'role']) &&
+               data.uid is string && data.uid.size() <= 128 &&
+               data.role in ['admin', 'author', 'guest', 'content manager'] &&
+               (data.email == null || (data.email is string && data.email.size() <= 256)) &&
+               (data.displayName == null || (data.displayName is string && data.displayName.size() <= 256)) &&
+               (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
+               (data.bio == null || (data.bio is string && data.bio.size() <= 2000));
+      }
+
+      allow read: if isSignedIn();
+      
+      allow create: if (isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (
+        incoming().role == 'guest' || 
+        (request.auth.token.email == 'cahyadife@gmail.com' && incoming().role == 'admin')
+      )) || isAdmin();
+
+      allow update: if (isSignedIn() && isOwner(userId) && (
+        // Action: Self-promotion for bootstrap
+        (request.auth.token.email == 'cahyadife@gmail.com' && incoming().role == 'admin' && incoming().diff(existing()).affectedKeys().hasOnly(['role'])) ||
+        // Action: Update Profile
+        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'bio']) && isValidUser(incoming()))
+      )) || isAdmin();
+    }
+
+    // POSTS
+    match /posts/{postId} {
+      function isValidPost(data) {
+        return data.title is string && data.title.size() <= 500 &&
+               data.content is string && data.content.size() <= 50000 &&
+               data.status in ['published', 'draft', 'review'] &&
+               data.authorId is string;
+      }
+      allow read: if true; 
+      allow create: if isAuthor() && isValidPost(incoming()) && incoming().authorId == request.auth.uid;
+      allow update: if (isAuthor() && existing().authorId == request.auth.uid && isValidPost(incoming())) || isAdmin();
+      allow delete: if isAdmin();
+
+      // COMMENTS (Subcollection)
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && isEmailVerified() && incoming().authorId == request.auth.uid;
+        allow update: if isOwner(existing().authorId) || isAdmin() || 
+                       (isEmailVerified() && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && (incoming().likesCount == existing().likesCount + 1 || incoming().likesCount == existing().likesCount - 1));
+        allow delete: if isOwner(existing().authorId) || isAdmin();
+      }
+
+      // REVISIONS (Subcollection)
+      match /revisions/{revisionId} {
+        allow read: if isAdmin() || (isAuthor() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+        allow create: if isAdmin() || (isAuthor() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+      }
+    }
+
+    // PRODUCTS
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ADS
+    match /ads/{adId} {
+      function isValidAd(data) {
+        return data.keys().hasAll(['name', 'placement', 'type', 'active']) &&
+               data.name is string && data.name.size() <= 200 &&
+               data.placement in ['top', 'sidebar', 'inline', 'bottom'] &&
+               data.type in ['image', 'code'] &&
+               data.active is bool &&
+               (data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 1024)) &&
+               (data.url == null || (data.url is string && data.url.size() <= 1024)) &&
+               (data.code == null || (data.code is string && data.code.size() <= 10000));
+      }
+      
+      allow read: if true;
+      allow create: if isAdmin() && isValidAd(incoming());
+      allow update: if (isAdmin() && isValidAd(incoming())) || (
+        incoming().diff(existing()).affectedKeys().hasOnly(['impressions', 'clicks']) && (
+          (incoming().get('impressions', 0) == existing().get('impressions', 0) + 1) ||
+          (incoming().get('clicks', 0) == existing().get('clicks', 0) + 1)
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ROLES
+    match /roles/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // CATEGORIES
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAuthor();
+    }
+
+    // TAGS
+    match /tags/{tagId} {
+      allow read: if true;
+      allow write: if isAuthor();
+    }
+
+    // APIS & API MANAGEMENT
+    match /apis/{apiId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /api_management/{apiId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

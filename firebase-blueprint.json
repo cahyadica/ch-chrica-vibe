@@ -1,0 +1,167 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "author", "guest"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Post": {
+      "title": "Blog Post",
+      "description": "Article content for the blog section",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "category": { "type": "string", "enum": ["Finance", "Crypto", "Technology"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "seoTitle": { "type": "string" },
+        "seoDescription": { "type": "string" },
+        "seoKeywords": { "type": "string" },
+        "status": { "type": "string", "enum": ["published", "draft", "review"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "productIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["title", "content", "authorId", "status"]
+    },
+    "Product": {
+      "title": "Product or Affiliate Link",
+      "description": "Items for sale or affiliate links",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "currency": { "type": "string" },
+        "type": { "type": "string", "enum": ["real", "affiliate"] },
+        "category": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "affiliateLink": { "type": "string" },
+        "buttonText": { "type": "string" },
+        "gallery": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type"]
+    },
+    "Ad": {
+      "title": "Advertisement",
+      "description": "Dynamic ad placements and metrics",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "placement": { "type": "string", "enum": ["top", "sidebar", "inline", "bottom"] },
+        "type": { "type": "string", "enum": ["image", "code"] },
+        "code": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "url": { "type": "string" },
+        "active": { "type": "boolean" },
+        "impressions": { "type": "integer" },
+        "clicks": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["placement", "type", "active", "name"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comments on posts",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "parentId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "flagged"] },
+        "likesCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "content"]
+    },
+    "Revision": {
+      "title": "Post Revision",
+      "description": "Historical version of a blog post",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedById": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "createdAt"]
+    },
+    "Role": {
+      "title": "Role Definition",
+      "description": "Defines a role and its associated API permissions",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "permissions": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name"]
+    },
+    "API": {
+      "title": "API Key",
+      "description": "Global registry of authorized API endpoints and keys",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "key": { "type": "string", "description": "Internal permission identifier" },
+        "secret": { "type": "string", "description": "The actual API key or secret token" },
+        "description": { "type": "string" },
+        "endpoint": { "type": "string" }
+      },
+      "required": ["name", "key"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Post categories",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Tag": {
+      "title": "Tag",
+      "description": "Post tags",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "Users and their roles" },
+    "/posts/{postId}": { "schema": "Post", "description": "Blog posts" },
+    "/products/{productId}": { "schema": "Product", "description": "Products and affiliates" },
+    "/ads/{adId}": { "schema": "Ad", "description": "Ads management" },
+    "/posts/{postId}/comments/{commentId}": { "schema": "Comment", "description": "Comments on specific posts" },
+    "/posts/{postId}/revisions/{revisionId}": { "schema": "Revision", "description": "Historical revisions of a post" },
+    "/roles/{roleId}": { "schema": "Role", "description": "RBAC role definitions" },
+    "/apis/{apiId}": { "schema": "API", "description": "Global API registry" },
+    "/categories/{categoryId}": { "schema": "Category", "description": "Global categories" },
+    "/tags/{tagId}": { "schema": "Tag", "description": "Global tags" }
+  }
+}

@@ -1,0 +1,26 @@
+337:                        className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-3xl p-3 z-20 overflow-hidden"
+463:        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+630:          <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded text-[8px] font-black text-white uppercase tracking-widest">
+677:          className="absolute inset-0 cursor-pointer"
+688:          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent flex flex-col justify-end p-8 md:p-20">
+763:      <div className="absolute bottom-12 right-12 flex items-center gap-6 z-20">
+780:                  className="absolute inset-0 flex items-center"
+1117:            <div className="absolute inset-x-8 md:inset-x-20 bottom-8 md:bottom-20 space-y-6">
+1188:                      <div className="absolute top-4 left-4">
+1643:                className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1"
+1897:                <div className="absolute top-6 right-6">
+2870:                          className="absolute left-0 w-1 h-6 bg-indigo-600 rounded-r-full"
+3335:                  className={`absolute inset-0 rounded-t-xl opacity-20 group-hover:opacity-40 transition-opacity ${val > 70 ? "bg-indigo-600" : "bg-indigo-400"}`}
+3346:                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+3350:                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black dark:bg-white text-white dark:text-black py-2 px-3 rounded-2xl opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 shadow-xl pointer-events-none z-50">
+4028:                              className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover/btn:opacity-100 transition-opacity"
+5337:                            className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300"
+5360:                            className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300"
+6087:              <div className="absolute top-6 left-6 flex items-center gap-2">
+6104:              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-8">
+6248:              className="absolute top-12 right-12 text-slate-300 hover:text-black transition-colors"
+6865:                        className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${currentApi.active !== false ? "left-[22px]" : "left-0.5"}`}
+7034:                      <div className="absolute left-6 top-24 bottom-0 w-[1px] bg-slate-100 dark:bg-slate-800" />
+7113:                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+7154:                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+8604:              className="absolute top-10 right-10 text-slate-300 hover:text-black dark:hover:text-white transition-all"
