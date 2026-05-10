@@ -1,7 +1,16 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,12 +21,6 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_GA_MEASUREMENT_ID
 };
 
-if (!firebaseConfig.apiKey) {
-  console.error("Firebase API Key is missing! Check your .env.production file.");
-}
-
-console.log("Initializing Firebase with Project ID:", firebaseConfig.projectId);
-
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID); 
 export const auth = getAuth(app);
@@ -27,19 +30,42 @@ export const googleProvider = new GoogleAuthProvider();
 // Connection Test
 async function testConnection() {
   try {
-    // Attempting a real read to verify connectivity
     await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("Firebase connected successfully.");
+    console.log("Firebase connected successfully with Project:", firebaseConfig.projectId);
   } catch (error: any) {
-    if (error?.message?.includes('the client is offline')) {
-      console.error("Firebase is offline. Check network or databaseId configuration.");
-    } else {
-      console.warn("Initial connection check (expected if 'test/connection' doc missing):", error.message);
-    }
+    console.warn("Firebase check:", error.message);
   }
 }
 testConnection();
 
 // Auth Helpers
-export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const loginWithGoogle = async () => {
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (error: any) {
+    console.error("Google Login Error:", error.code, error.message);
+    throw error;
+  }
+};
+
+export const loginWithEmail = async (email: string, pass: string) => {
+  try {
+    return await signInWithEmailAndPassword(auth, email, pass);
+  } catch (error: any) {
+    console.error("Email Login Error:", error.code, error.message);
+    throw error;
+  }
+};
+
+export const signupWithEmail = async (email: string, pass: string, name: string) => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(userCredential.user, { displayName: name });
+    return userCredential;
+  } catch (error: any) {
+    console.error("Email Signup Error:", error.code, error.message);
+    throw error;
+  }
+};
+
 export const logoutUser = () => signOut(auth);

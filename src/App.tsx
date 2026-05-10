@@ -88,7 +88,8 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { loginWithGoogle, logoutUser, db, storage } from "./lib/firebase";
+import { loginWithGoogle, loginWithEmail, signupWithEmail, logoutUser, db, storage } from "./lib/firebase";
+import { LoginModal, SignupModal } from "./components/AuthModals";
 import { handleFirestoreError, OperationType } from "./lib/firestore-errors";
 import {
   collection,
@@ -224,6 +225,11 @@ function Navbar({
   setSelectedCategories: (c: string[]) => void;
 }) {
   const { user, profile, isAdmin } = useAuth();
+  
+  useEffect(() => {
+    console.log("Global Auth State:", { user, profile, isAdmin });
+  }, [user, profile, isAdmin]);
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const categories = [
     "All",
@@ -250,8 +256,9 @@ function Navbar({
             onClick={() => {
               onNavigate("feed");
               setSelectedCategories(["All"]);
+              onSearchChange("");
             }}
-            className="text-3xl font-serif font-black tracking-tighter cursor-pointer select-none text-slate-900 dark:text-white dark:text-white dark:text-white"
+            className="text-3xl font-serif font-black tracking-tighter cursor-pointer select-none text-slate-900 dark:text-white"
           >
             Chrica<span className="text-indigo-600">.</span>
           </div>
@@ -1031,6 +1038,7 @@ function StoryFeed({
   selectedCategories,
   setSelectedCategories,
   loading,
+  onSearchChange,
 }: {
   stories: any[];
   onStoryClick: (s: any) => void;
@@ -1039,6 +1047,7 @@ function StoryFeed({
   selectedCategories: string[];
   setSelectedCategories: (c: string[]) => void;
   loading: boolean;
+  onSearchChange: (q: string) => void;
 }) {
   const [sharingStory, setSharingStory] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
@@ -1056,6 +1065,7 @@ function StoryFeed({
       story.title?.toLowerCase().includes(query) ||
       story.excerpt?.toLowerCase().includes(query) ||
       story.authorName?.toLowerCase().includes(query) ||
+      story.category?.toLowerCase().includes(query) ||
       (story.tags &&
         story.tags.some((t: string) => t.toLowerCase().includes(query)));
     const matchesCategory =
@@ -1064,10 +1074,11 @@ function StoryFeed({
     return matchesSearch && matchesCategory;
   });
 
-  const CATEGORIES = ["All", ...categories.map(c => c.name)];
+  const CATEGORIES = ["All", ...categories.map((c) => c.name)];
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories([cat]);
+    if (cat === "All") onSearchChange("");
   };
 
   return (
@@ -1107,7 +1118,7 @@ function StoryFeed({
       <div className="flex flex-col lg:flex-row gap-16">
         {/* Main News Content */}
         <div className="flex-1">
-          <div className="flex items-center justify-between mb-12">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
             <h2 className="text-2xl font-serif font-black tracking-tight">
               Latest <span className="italic">Stories</span>
             </h2>
@@ -1313,7 +1324,7 @@ function StoryFeed({
                         onClick={() => onStoryClick(s)}
                         className="group cursor-pointer flex gap-4"
                       >
-                        <div className="text-2xl font-serif font-black text-slate-200 dark:text-slate-800 tabular-nums">
+                        <div className="text-2xl font-serif font-black text-slate-300 dark:text-slate-800 tabular-nums">
                           0{i + 1}
                         </div>
                         <div>
@@ -1361,7 +1372,7 @@ function StoryFeed({
                   <button
                     key={c.id}
                     onClick={() => toggleCategory(c.name)}
-                    className={`px-5 py-2 rounded-full text-xs font-medium transition-all ${selectedCategories.includes(c.name) ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                    className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedCategories.includes(c.name) ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white"}`}
                   >
                     {c.name}
                   </button>
@@ -1779,7 +1790,7 @@ function ReaderView({
 
           <div
             className="ql-editor font-serif text-xl text-slate-900 dark:text-white dark:text-slate-200 leading-loose !p-0"
-            dangerouslySetInnerHTML={{ __html: story.content }}
+            dangerouslySetInnerHTML={{ __html: story.content || "<p className='italic text-slate-400'>This manuscript has no content yet.</p>" }}
           />
         </article>
 
@@ -1828,7 +1839,7 @@ function ReaderView({
         />
 
         <div id="comments">
-          <CommentSection postId={story.id} />
+          <CommentSection postId={story.id} onAuth={() => setIsAuthOpen(true)} />
         </div>
 
         <AdUnit
@@ -3201,43 +3212,28 @@ function ProductsManagement() {
     path: string,
     originalName: string = "image.jpg",
   ): Promise<string> => {
-    console.log(`Starting upload to ${path}`);
-    return new Promise((resolve, reject) => {
-      try {
-        const storageRef = ref(
-          storage,
-          `${path}/${Date.now()}_${originalName}`,
-        );
-        const uploadTask = uploadBytesResumable(storageRef, file);
+    console.log(`Starting local upload for: ${originalName}`);
+    try {
+      const formData = new FormData();
+      formData.append('file', file, originalName);
 
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            const progress =
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log(`Upload is ${progress}% done`);
-          },
-          (error) => {
-            console.error("Upload task error:", error);
-            reject(error);
-          },
-          async () => {
-            console.log("Upload task completed successfully");
-            try {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              console.log("Download URL obtained:", url);
-              resolve(url);
-            } catch (err) {
-              console.error("Error getting download URL:", err);
-              reject(err);
-            }
-          },
-        );
-      } catch (error) {
-        console.error("Error initializing upload task:", error);
-        reject(error);
+      const response = await fetch(`/api/upload?path=${encodeURIComponent(path)}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Upload failed');
       }
-    });
+
+      const data = await response.json();
+      console.log("Local upload success:", data.url);
+      return data.url;
+    } catch (error: any) {
+      console.error("Local upload error:", error.message);
+      throw error;
+    }
   };
 
   const onFileSelected = (
@@ -3547,6 +3543,7 @@ function ProductsManagement() {
                                 src={url}
                                 className="w-full h-full object-cover"
                                 alt=""
+                                crossOrigin="anonymous"
                                 referrerPolicy="no-referrer"
                               />
                             </div>
@@ -3678,6 +3675,7 @@ function ProductsManagement() {
                                         }
                                         className="w-full h-full object-cover"
                                         alt=""
+                                        crossOrigin="anonymous"
                                         referrerPolicy="no-referrer"
                                       />
                                     </div>
@@ -3801,6 +3799,7 @@ function ProductsManagement() {
                           }
                           className="w-full h-full object-cover"
                           alt=""
+                          crossOrigin="anonymous"
                           referrerPolicy="no-referrer"
                         />
                       </div>
@@ -5442,16 +5441,21 @@ function PostManagement({
 
     setUploading(true);
     try {
-      const storageRef = ref(
-        storage,
-        `featured_images/${Date.now()}_${file.name}`,
-      );
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      setCurrentPost({ ...currentPost, featuredImage: downloadURL });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload?path=posts/featured', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      setCurrentPost({ ...currentPost, featuredImage: data.url });
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Failed to upload image. Please check your storage rules.");
+      alert("Failed to upload image.");
     } finally {
       setUploading(false);
     }
@@ -5480,13 +5484,22 @@ function PostManagement({
       }
 
       if (imageUrl) {
-        // Upload the base64 to Firebase Storage so it becomes a standard URL
-        const storageRef = ref(storage, `generated_images/${Date.now()}.png`);
+        // Upload the base64 to Local Storage
         const fetchResp = await fetch(imageUrl);
         const blob = await fetchResp.blob();
-        await uploadBytes(storageRef, blob);
-        const downloadURL = await getDownloadURL(storageRef);
-        setCurrentPost({ ...currentPost, featuredImage: downloadURL });
+        
+        const formData = new FormData();
+        formData.append('file', blob, `ai_gen_${Date.now()}.png`);
+
+        const response = await fetch('/api/upload?path=posts/featured', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        const data = await response.json();
+        setCurrentPost({ ...currentPost, featuredImage: data.url });
       } else {
         alert("Failed to generate image. Please try again.");
       }
@@ -7340,13 +7353,18 @@ function ProfileView({
 
     setUploading(true);
     try {
-      const storageRef = ref(
-        storage,
-        `profiles/${Date.now()}_${file.name}`,
-      );
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
-      setEditPhoto(url);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload?path=users/profiles', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      setEditPhoto(data.url);
     } catch (error) {
       console.error("Upload failed", error);
     } finally {
@@ -7794,13 +7812,18 @@ function WriteView({ onCancel }: { onCancel: () => void }) {
 
     setUploading(true);
     try {
-      const storageRef = ref(
-        storage,
-        `featured_images/${Date.now()}_${file.name}`,
-      );
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      setCurrentPost({ ...currentPost, featuredImage: downloadURL });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload?path=posts/featured', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      setCurrentPost({ ...currentPost, featuredImage: data.url });
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Failed to upload image.");
@@ -7832,12 +7855,22 @@ function WriteView({ onCancel }: { onCancel: () => void }) {
       }
 
       if (imageUrl) {
-        const storageRef = ref(storage, `generated_images/${Date.now()}.png`);
+        // Upload the base64 to Local Storage
         const fetchResp = await fetch(imageUrl);
         const blob = await fetchResp.blob();
-        await uploadBytes(storageRef, blob);
-        const downloadURL = await getDownloadURL(storageRef);
-        setCurrentPost({ ...currentPost, featuredImage: downloadURL });
+        
+        const formData = new FormData();
+        formData.append('file', blob, `ai_gen_${Date.now()}.png`);
+
+        const response = await fetch('/api/upload?path=posts/featured', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        const data = await response.json();
+        setCurrentPost({ ...currentPost, featuredImage: data.url });
       } else {
         alert("Failed to generate image. Please try again.");
       }
@@ -8461,11 +8494,10 @@ function Root() {
   const [adminPostId, setAdminPostId] = useState<string | null>(null);
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([
-    "All",
-  ]);
-  const { user, profile, loading, isAdmin } = useAuth();
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(["All"]);
+  const { user, loading, isAdmin } = useAuth();
 
   useEffect(() => {
     setIsStoriesLoading(true);
@@ -8477,10 +8509,12 @@ function Root() {
     const unsub = onSnapshot(
       q,
       (snap) => {
+        console.log("Firestore Fetch Success:", snap.docs.length, "posts found in database:", (db as any)._databaseId?.databaseId || "(default)");
         setStories(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
         setIsStoriesLoading(false);
       },
       (err) => {
+        console.error("Firestore Fetch Error:", err.code, err.message);
         handleFirestoreError(err, OperationType.LIST, "posts");
         setIsStoriesLoading(false);
       },
@@ -8838,6 +8872,7 @@ function Root() {
               searchQuery={searchQuery}
               selectedCategories={selectedCategories}
               setSelectedCategories={setSelectedCategories}
+              onSearchChange={setSearchQuery}
             />
           )}
 
@@ -8963,107 +8998,20 @@ function Root() {
           </footer>
         )}
       </main>
-
       <AnimatePresence>
         {view === "write" && <WriteView onCancel={() => setView("feed")} />}
       </AnimatePresence>
 
-      {/* Modern High-End Auth Modal */}
-      {isAuthOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white dark:bg-slate-900 p-12 md:p-20 rounded-[48px] w-full max-w-2xl text-center relative shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] border border-slate-50 dark:border-white/5"
-          >
-            <button
-              onClick={() => setIsAuthOpen(false)}
-              className="absolute top-10 right-10 text-slate-500 dark:text-slate-300 hover:text-black dark:hover:text-white transition-all"
-            >
-              <PlusCircle className="rotate-45" size={28} />
-            </button>
-
-            <div className="text-[12px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-300 dark:text-slate-600 mb-6">
-              Welcome to Chrica
-            </div>
-            <h2 className="text-4xl md:text-6xl font-serif font-black mb-6 tracking-tighter text-slate-900 dark:text-white dark:text-white">
-              Your space for{" "}
-              <span className="italic block mt-1">
-                fresh ideas<span className="text-indigo-600">.</span>
-              </span>
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-12 text-base md:text-lg max-w-md mx-auto italic font-serif leading-relaxed">
-              Join a community of curious minds exploring the world through the
-              lens of human experience.
-            </p>
-
-            <div className="space-y-4 max-w-xs mx-auto">
-              <button
-                onClick={async () => {
-                  await loginWithGoogle();
-                  setIsAuthOpen(false);
-                  trackEvent("Authentication", "Login", "Google");
-                }}
-                className="w-full flex items-center justify-center gap-4 border border-slate-200 dark:border-slate-800 py-3 rounded-full text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all group dark:text-white"
-              >
-                <img
-                  src="https://www.google.com/favicon.ico"
-                  className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all"
-                  alt="G"
-                />
-                Sign in with Google
-              </button>
-              
-              <button
-                onClick={() => alert("Please configure Apple Sign-In in Firebase Console first.")}
-                className="w-full flex items-center justify-center gap-4 border border-slate-200 dark:border-slate-800 py-3 rounded-full text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all dark:text-white"
-              >
-                <Apple size={18} className="text-slate-900 dark:text-white" />
-                Sign in with Apple
-              </button>
-
-              <button
-                onClick={() => alert("Please configure Facebook Auth in Firebase Console first.")}
-                className="w-full flex items-center justify-center gap-4 border border-slate-200 dark:border-slate-800 py-3 rounded-full text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all dark:text-white"
-              >
-                <Facebook size={18} className="text-blue-600" />
-                Sign in with Facebook
-              </button>
-
-              <button
-                onClick={() => alert("Please configure Twitter/X Auth in Firebase Console first.")}
-                className="w-full flex items-center justify-center gap-4 border border-slate-200 dark:border-slate-800 py-3 rounded-full text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all dark:text-white"
-              >
-                <Twitter size={18} className="text-slate-900 dark:text-white" />
-                Sign in with X
-              </button>
-
-              <button className="w-full flex items-center justify-center gap-4 border border-slate-200 dark:border-slate-800 py-3 rounded-full text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all dark:text-white">
-                <Mail size={18} className="text-slate-500 dark:text-slate-400" />
-                Sign in with Email
-              </button>
-            </div>
-
-            <p className="mt-16 text-[10px] text-slate-500 dark:text-slate-300 dark:text-slate-600 font-bold uppercase tracking-[0.2em] leading-relaxed max-w-xs mx-auto">
-              By signing in you agree to our{" "}
-              <a
-                href="#"
-                className="underline hover:text-black dark:hover:text-white"
-              >
-                Terms
-              </a>{" "}
-              &{" "}
-              <a
-                href="#"
-                className="underline hover:text-black dark:hover:text-white"
-              >
-                Privacy Policy
-              </a>
-            </p>
-          </motion.div>
-        </div>
-      )}
-
+      <LoginModal 
+        isOpen={isAuthOpen} 
+        onClose={() => setIsAuthOpen(false)} 
+        onSwitchToSignup={() => { setIsAuthOpen(false); setIsSignupOpen(true); }} 
+      />
+      <SignupModal 
+        isOpen={isSignupOpen} 
+        onClose={() => setIsSignupOpen(false)} 
+        onSwitchToLogin={() => { setIsSignupOpen(false); setIsAuthOpen(true); }} 
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,900;1,900&family=Inter:wght@400;500;700;900&display=swap');
         

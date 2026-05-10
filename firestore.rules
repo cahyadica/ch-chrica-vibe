@@ -71,9 +71,9 @@ service cloud.firestore {
       // COMMENTS (Subcollection)
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn() && isEmailVerified() && incoming().authorId == request.auth.uid;
+        allow create: if isSignedIn() && incoming().authorId == request.auth.uid;
         allow update: if isOwner(existing().authorId) || isAdmin() || 
-                       (isEmailVerified() && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && (incoming().likesCount == existing().likesCount + 1 || incoming().likesCount == existing().likesCount - 1));
+                       ((incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])) && (incoming().likesCount == existing().likesCount + 1 || incoming().likesCount == existing().likesCount - 1));
         allow delete: if isOwner(existing().authorId) || isAdmin();
       }
 

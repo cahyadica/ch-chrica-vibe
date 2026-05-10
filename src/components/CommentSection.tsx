@@ -56,13 +56,20 @@ function CommentForm({
 
     setIsUploadingImage(true);
     try {
-      const storageRef = ref(
-        storage,
-        `comment_images/${Date.now()}_${file.name}`
-      );
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      setImageUrl(downloadURL);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload?path=posts/comments', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setImageUrl(data.url);
       setShowUploadPopup(false);
     } catch (error) {
       console.error("Upload failed:", error);
@@ -490,7 +497,13 @@ function CommentItem({
   );
 }
 
-export default function CommentSection({ postId }: { postId: string }) {
+export default function CommentSection({ 
+  postId,
+  onAuth
+}: { 
+  postId: string;
+  onAuth: () => void;
+}) {
   const { user, isAdmin } = useAuth();
   const [comments, setComments] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes">("newest");
@@ -589,7 +602,13 @@ export default function CommentSection({ postId }: { postId: string }) {
         <CommentForm postId={postId} />
       ) : (
         <div className="mb-12 p-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] text-center">
-          <p className="text-sm text-slate-500 font-serif mb-4 italic">Sign in to join the conversation.</p>
+          <p className="text-sm text-slate-500 font-serif mb-6 italic">Sign in to join the conversation.</p>
+          <button 
+            onClick={onAuth}
+            className="bg-black dark:bg-white dark:text-black text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-[0.98] transition-all"
+          >
+            Sign In Now
+          </button>
         </div>
       )}
 

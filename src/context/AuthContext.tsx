@@ -63,9 +63,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(newProfile);
           } else {
             const data = userSnap.data() as UserProfile;
+            let needsUpdate = false;
+            const updates: any = {};
+
             if (firebaseUser.email === 'cahyadife@gmail.com' && data.role !== 'admin') {
-              await setDoc(userRef, { role: 'admin' }, { merge: true });
+              updates.role = 'admin';
               data.role = 'admin';
+              needsUpdate = true;
+            }
+            
+            // Sync displayName if it's currently generic but available in firebaseUser
+            if (firebaseUser.displayName && data.displayName !== firebaseUser.displayName) {
+              updates.displayName = firebaseUser.displayName;
+              data.displayName = firebaseUser.displayName;
+              needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+              await setDoc(userRef, updates, { merge: true });
             }
             setProfile(data);
           }

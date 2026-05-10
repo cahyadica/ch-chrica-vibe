@@ -8,8 +8,9 @@ import { ExternalLink, ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-r
 
 function ImageCarousel({ images, name }: { images: string[]; name: string }) {
   const [idx, setIdx] = useState(0);
+  const [hasError, setHasError] = useState(false);
 
-  if (!images || images.length === 0) {
+  if (!images || images.length === 0 || hasError) {
     return (
       <img
         src={`https://image.pollinations.ai/prompt/${encodeURIComponent(
@@ -27,11 +28,13 @@ function ImageCarousel({ images, name }: { images: string[]; name: string }) {
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIdx((v) => (v + 1) % images.length);
+    setHasError(false);
   };
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIdx((v) => (v - 1 + images.length) % images.length);
+    setHasError(false);
   };
 
   return (
@@ -39,7 +42,10 @@ function ImageCarousel({ images, name }: { images: string[]; name: string }) {
       <img
         src={images[idx]}
         alt={`${name} - ${idx + 1}`}
+        onError={() => setHasError(true)}
         className="w-full h-full object-cover transition-transform duration-700"
+        crossOrigin="anonymous"
+        referrerPolicy="no-referrer"
       />
       {images.length > 1 && (
         <>
